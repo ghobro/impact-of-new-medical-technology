@@ -331,3 +331,83 @@ bind_rows(hes = new_procedure_counts_full,
   labs(title = "Incidence of primary procedures over time by OPCS-4 version for SUS and HES",
        subtitle = "year <= 2020") +
   theme(axis.title = element_blank())
+
+
+# SUS APCS ----------------------------------------------------------------
+
+# We may want to use spells data in SUS
+# There is an issue here in the way that episodes are combined into spells
+# We can look at a particular spell (ID: 1704950529596981363) in both APCE and
+# APCS to see how it works
+
+# this is using the episodes data
+sus_proc_episodes_vs_spells_1 <- DBI::dbGetQuery(
+  con_udal_warehouse,
+  "SELECT
+      [Admission_Method]
+      ,[Admission_Date]
+      ,[Der_Spell_ID]
+      ,[Episode_Number]
+      ,[Der_Primary_Procedure_Code]
+      ,[Der_Procedure_Code_2]
+      ,[Der_Procedure_Code_3]
+      ,[Der_Procedure_Code_4]
+      ,[Der_Procedure_Code_5]
+      ,[Der_Procedure_Code_6]
+      ,[Der_Procedure_Code_7]
+      ,[Der_Procedure_Code_8]
+      ,[Der_Procedure_Code_9]
+      ,[Der_Procedure_Code_10]
+      ,[Der_Procedure_Code_11]
+      ,[Der_Procedure_Code_12]
+      ,[Der_Procedure_Code_13]
+      ,[Der_Procedure_Code_14]
+      ,[Der_Procedure_Code_15]
+      ,[Der_Procedure_Code_16]
+      ,[Der_Procedure_Code_17]
+      ,[Der_Procedure_Code_18]
+      ,[Der_Procedure_Code_19]
+      ,[Der_Procedure_Code_20]
+      ,[Der_Procedure_Code_21]
+      ,[Der_Procedure_Code_22]
+      ,[Der_Procedure_Code_23]
+      ,[Der_Procedure_Code_24]
+      ,[Der_Procedure_Count]
+      ,[Der_Procedure_All]
+  FROM [SUS_APC].[APCE_Core]
+  where [Der_Spell_ID] = '1704950529596981363'
+  order by [Episode_Number]"
+)
+
+# this is using the spells data (i.e. there'll be a single row)
+sus_proc_episodes_vs_spells_2 <- DBI::dbGetQuery(
+  con_udal_warehouse,
+  "SELECT
+	[Der_Spell_ID],
+	[Der_Episode_Count],
+	[Admission_Method],
+  cast([Admission_Date] as date) as [Admission_Date],
+	[Der_Procedure_Count],
+  [Der_Procedure_All]
+ FROM
+	[SUS_APC].[APCS_Core]
+where
+	--[Der_Procedure_Count] > 0 and
+	[Der_Spell_ID] = '1704950529596981363'"
+)
+
+glimpse(sus_proc_episodes_vs_spells_1)
+glimpse(sus_proc_episodes_vs_spells_2)
+
+# So, we can see that where a spell comprises multiple episodes with procedures,
+# they are all added to a single column where "||" delimits the episodes and the
+# specific procedures are delimited by commas.
+#
+# That means that there is not necessarily a primary procedure that can be
+# mapped on a one-to-one basis with any given multi-episode spell. In the case
+# of the specific example above, you can see that there were 5 episodes within
+# the spell, 3 of which involved procedures, so that there are 3 primary
+# procedures.
+
+
+
