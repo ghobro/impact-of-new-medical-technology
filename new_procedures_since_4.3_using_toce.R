@@ -409,5 +409,170 @@ glimpse(sus_proc_episodes_vs_spells_2)
 # the spell, 3 of which involved procedures, so that there are 3 primary
 # procedures.
 
+## Potential solution: focus on elective cases (including day cases)
+
+# What is the number of episodes per spell for elective vs non-elective admissions?
+
+sus_spells_episode_count_by_pod <- DBI::dbGetQuery(
+  con_udal_warehouse,
+  "SELECT
+    case
+      when left([Admission_Method], 1) = \'1\' then \'IpElec\'
+      when left([Admission_Method], 1) = \'3\' then \'IpMat\'
+      else \'IpEmer\'
+      end as [pod],
+	  case
+	    when [Der_Episode_Count] = 1 then \'Single episode\'
+	    else \'Multiple episodes\'
+	    end as [episode_count],
+    COUNT(*) as [count]
+  FROM
+	  [SUS_APC].[APCS_Core]
+	WHERE
+	  year([Admission_Date]) between 2011 and 2019
+	GROUP BY
+	  case
+      when left([Admission_Method], 1) = \'1\' then \'IpElec\'
+      when left([Admission_Method], 1) = \'3\' then \'IpMat\'
+      else \'IpEmer\'
+      end,
+    case
+	    when [Der_Episode_Count] = 1 then \'Single episode\'
+	    else \'Multiple episodes\'
+	    end"
+  )
+
+sus_spells_episode_count_by_pod <- sus_spells_episode_count_by_pod |>
+  arrange(pod) |>
+  mutate(prop = count / sum(count), .by = pod)
+
+ggplot(
+  sus_spells_episode_count_by_pod,
+  aes(x = pod, y = prop, fill = episode_count)) +
+  geom_col(position = "fill")
+
+# We can see that >99% of elective admissions are one epsiode.
+# This is starkly different to emergency admissions, of which ~28% comprise multiple episodes.
+
+View(sus_spells_episode_count_by_pod_wide)
+
+
+# Analysis with SUS elective spells ---------------------------------------
+
+# This is designed to take the primary procedure (can look at all procedures
+# later) from elective spells in SUS. For now we just look at the 4-digit code
+# after the initial "\\".
+# NB this in theory should be nearly identical to simple using the episodes data
+# since we're filtering to elective which are almost always single episodes
+sql_command_sus_apcs <- paste0(
+  "select year([Admission_Date]) as [year], substring(Der_Procedure_All,3,4) as [primary_procedure], COUNT(*) as [n] ",
+  "from [SUS_APC].[APCS_Core] ",
+  "where substring(Der_Procedure_All,3,4) in (",
+  paste(new_codes, collapse = ", "), # creates a list of all the codes delimited by commas
+  ") and year([Admission_Date]) between 2000 and 2022 ",
+  "and left([Admission_Method], 1) = \'1\' ",
+  "group by year([Admission_Date]), substring(Der_Procedure_All,3,4)")
+
+# Run that query
+new_procedure_counts_sus_elective_apcs <- DBI::dbGetQuery(
+  con_udal_warehouse,
+  sql_command_sus_apcs)
+
+# join the data on OPCS versions
+new_procedure_counts_sus_elective_apcs_full <- left_join(
+  new_procedure_counts_sus_elective_apcs,
+  codes_by_version,
+  by = c("primary_procedure" = "code"))
+
+# Remove the codes from 4.10 as they only added in April 2023 so DQ poor in HES
+new_procedure_counts_sus_elective_apcs_full <- new_procedure_counts_sus_elective_apcs_full |>
+  filter(version_introduced != "4.10")
+
+# re-organise the columns
+new_procedure_counts_sus_elective_apcs_full <- new_procedure_counts_sus_elective_apcs_full |>
+  select(year, primary_procedure, description, version_introduced, n)
+
+# write the data
+write.csv(new_procedure_counts_sus_elective_apcs_full,
+          paste0(
+            new_medical_tech_folder,
+            "incidence of primary procedures since OPCS-4.2 (SUS APCS elective_only).csv"),
+          row.names = FALSE)
+
+# exploratory chart - incidence by version and year
+# Interesting also to see the impact of filtering the end of the time frame
+new_procedure_counts_sus_elective_apcs_full |>
+  summarise(n = sum(n), .by = c(version_introduced, year)) |>
+  ggplot(aes(x=year, y=n)) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, NA),labels = scales::comma) +
+  facet_wrap(~version_introduced, scales = "free_y") +
+  labs(title = "Incidence of primary procedures over time by OPCS-4 version",
+       subtitle = "SUS APCS Elective Admissions only") +
+  theme(axis.title = element_blank())
+
+
+# SUS APCE vs APCS for elective -------------------------------------------
+
+# in theory the data should be almost identical when using elective admissions,
+# given that they are practically always one episode only
+
+# the next section will be identical to previous, except for using the episodes
+# data which means primary procedure is already in its own column
+
+sql_command_sus_apce <- paste0(
+  "select year([Admission_Date]) as [year], [Der_Primary_Procedure_Code] as [primary_procedure], COUNT(*) as [n] ",
+  "from [SUS_APC].[APCE_Core] ",
+  "where [Der_Primary_Procedure_Code] in (",
+  paste(new_codes, collapse = ", "), # creates a list of all the codes delimited by commas
+  ") and year([Admission_Date]) between 2000 and 2022 ",
+  "and left([Admission_Method], 1) = \'1\' ",
+  "group by year([Admission_Date]), [Der_Primary_Procedure_Code]")
+
+# Run that query
+new_procedure_counts_sus_elective_apce <- DBI::dbGetQuery(
+  con_udal_warehouse,
+  sql_command_sus_apce)
+
+# join the data on OPCS versions
+new_procedure_counts_sus_elective_apce_full <- left_join(
+  new_procedure_counts_sus_elective_apce,
+  codes_by_version,
+  by = c("primary_procedure" = "code"))
+
+# Remove the codes from 4.10 as they only added in April 2023 so DQ poor in HES
+new_procedure_counts_sus_elective_apce_full <- new_procedure_counts_sus_elective_apce_full |>
+  filter(version_introduced != "4.10")
+
+# re-organise the columns
+new_procedure_counts_sus_elective_apce_full <- new_procedure_counts_sus_elective_apce_full |>
+  select(year, primary_procedure, description, version_introduced, n)
+
+# write the data
+write.csv(new_procedure_counts_sus_elective_apce_full,
+          paste0(
+            new_medical_tech_folder,
+            "incidence of primary procedures since OPCS-4.2 (SUS APCE elective_only).csv"),
+          row.names = FALSE)
+
+new_procedure_counts_sus_elective_apce_vs_apcs <- bind_rows(
+  apcs = new_procedure_counts_sus_elective_apcs_full,
+  apce = new_procedure_counts_sus_elective_apce_full,
+  .id = "data")
+
+
+# exploratory chart - incidence by version and year
+# Interesting also to see the impact of filtering the end of the time frame
+new_procedure_counts_sus_elective_apce_vs_apcs |>
+  summarise(n = sum(n), .by = c(data,version_introduced, year)) |>
+  ggplot(aes(x=year, y=n, colour = data)) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, NA),labels = scales::comma) +
+  facet_wrap(~version_introduced, scales = "free_y") +
+  labs(title = "Incidence of primary procedures over time by OPCS-4 version",
+       subtitle = "SUS APCE vs APCS, Elective Admissions only") +
+  theme(axis.title = element_blank())
+
+
 
 
