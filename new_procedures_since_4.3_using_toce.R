@@ -404,10 +404,14 @@ glimpse(sus_proc_episodes_vs_spells_2)
 # specific procedures are delimited by commas.
 #
 # That means that there is not necessarily a primary procedure that can be
-# mapped on a one-to-one basis with any given multi-episode spell. In the case
-# of the specific example above, you can see that there were 5 episodes within
-# the spell, 3 of which involved procedures, so that there are 3 primary
-# procedures.
+# mapped on a one-to-one basis with any given multi-episode spell.
+
+# In the case of the specific example above, you can see that there were 5
+# episodes within the spell, 3 of which involved procedures, but the ordering of
+# the episodes within the `Der_Procedure_All` column is based simply on the
+# episode number (which is presumably to do with time rather than hierarchy),
+# which means gives no rationale for choosing any one of the three primary
+# procedures over the others.
 
 ## Potential solution: focus on elective cases (including day cases)
 
