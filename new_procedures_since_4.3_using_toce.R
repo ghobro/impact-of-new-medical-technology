@@ -578,5 +578,46 @@ new_procedure_counts_sus_elective_apce_vs_apcs |>
   theme(axis.title = element_blank())
 
 
+# Outpatient attendances --------------------------------------------------
+
+# load the data (which was extracted in SQL server due to issue with R Studio)
+new_procedure_counts_sus_opa <- read.csv(
+  paste0(new_medical_tech_folder, "Data/OPA procedures OPCS 4.3 onwards (excluding Y, Z).csv")
+  )
+
+# join the data on OPCS versions
+new_procedure_counts_sus_opa_full <- left_join(
+  new_procedure_counts_sus_opa,
+  codes_by_version,
+  by = c("primary_procedure" = "code"))
+
+# Remove the codes from 4.10 as they only added in April 2023 so DQ poor in HES
+new_procedure_counts_sus_opa_full <- new_procedure_counts_sus_opa_full |>
+  filter(version_introduced != "4.10")
+
+# re-organise the columns
+new_procedure_counts_sus_opa_full <- new_procedure_counts_sus_opa_full |>
+  select(year, primary_procedure, description, version_introduced, n)
+
+# write the data
+write.csv(new_procedure_counts_sus_opa_full,
+          paste0(
+            new_medical_tech_folder,
+            "incidence of primary procedures since OPCS-4.2 (SUS OPA).csv"),
+          row.names = FALSE)
+
+new_procedure_counts_sus_opa_full |>
+  summarise(n = sum(n), .by = c(version_introduced, year)) |>
+  ggplot(aes(x=year, y=n)) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, NA),labels = scales::comma) +
+  facet_wrap(~version_introduced, scales = "free_y") +
+  labs(title = "Incidence of primary procedures over time by OPCS-4 version",
+       subtitle = "SUS OPA") +
+  theme(axis.title = element_blank())
+
+
+
+
 
 
