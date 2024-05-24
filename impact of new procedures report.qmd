@@ -1,0 +1,409 @@
+---
+title: "Impact of new medical technology"
+subtitle: "An analysis into the impact of new medical procedures on demand"
+date: today
+author: "Gabriel Hobro and Steven Wyatt"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+    message: false
+    warning: false
+editor: visual
+---
+
+```{r set_up}
+library(ggplot2)
+library(dplyr)
+library(here)
+library(readxl)
+library(tidyr)
+```
+
+## Introduction
+
+The government has committed to building more than 40 new hospitals by 2030. The New Hospital Programme (NHP), a partnership between DHSC and NHS England, aims to ensure that this new hospital infrastructure will meet the future needs of the population and that the required investment represents value for money.
+
+Estimating future activity levels represents a critical early step in the process of scaling and designing new hospital infrastructure. The Strategy Unit (SU) has developed a model to support the NHP and its stakeholders to make robust and auditable assessments of activity that hospitals may need to accommodate in future.
+
+The model accounts for a range of factors that might be expected to influence future levels of activity and resource (see figure 1 below).
+
+This paper explore the impact of new medical technology (specifically procedures) on hospital activity.
+
+![Figure 1: inputs to the NHP D&C Model](plots/model_diagram.jpg)
+
+## OPCS-4
+
+The OPCS-4 is a classification of surgical procedures and interventions. OPCS-4, along with ICD-10, is the UK standard for the coding of admitted patient care clinical data and, taken together, their use is fundamental to the production of statistical data by the four national administrations in England, Wales, Scotland and Northern Ireland.
+
+The classification codifies operations, procedures, and interventions performed during in-patient stays, day cases and outpatient attendances in NHS hospitals.
+
+There are 24 chapters each of which is assigned to a letter as follows:
+
+-   Chapter A - Nervous System
+-   Chapter B - Endocrine System and Breast
+-   Chapter C - Eye
+-   Chapter D - Ear
+-   Chapter E - Respiratory Tract
+-   Chapter F - Mouth
+-   Chapter G - Upper Digestive System
+-   Chapter H - Lower Digestive System
+-   Chapter J - Other Abdominal Organs, Principally Digestive
+-   Chapter K - Heart
+-   Chapter L - Arteries and Veins
+-   Chapter M - Urinary
+-   Chapter N - Male Genital Organs
+-   Chapter P - Lower Female Genital Tract
+-   Chapter Q - Upper Female Genital Tract
+-   Chapter R - Female Genital Tract Associated with Pregnancy, Childbirth and the Puerperium
+-   Chapter S - Skin
+-   Chapter T - Soft Tissue
+-   Chapter U - Diagnostic Imaging, Testing and Rehabilitation
+-   Chapter V - Bones and Joints of Skull and Spine
+-   Chapter W - Other Bones and Joints
+-   Chapter X - Miscellaneous Operations
+-   Chapter Y - Subsidiary Classification of Methods of Operation
+-   Chapter Z - Subsidiary Classification of Sites of Operation
+
+Each procedure code contains four characters in the format \[letter\]\[number\]\[number\].\[number\] where the initial letter denotes the chapter of the classification which the code is assigned to, and the first three characters refer to its group. For example a hemispherectomy has the code "A01.1", which means that it is in the chapter "A - Nervous System" and group "A01 - Major excision of tissue of brain".
+
+A comprehensive list of all procedure codes can be found at <https://classbrowser.nhs.uk/#/book/OPCS-4.10>.
+
+The OPCS-4 originates from the 1970 publication *Classification of Surgical Operations* by the Office of Population Censuses and Surveys (OPCS), with this being adapted numerous times until the 1989 release of OPCS-4.2. The next edition was OPSC-4.3 in 2006, and there have been numerous editions since then, tabulated in table 1.
+
+|                                     |                       |
+|-------------------------------------|-----------------------|
+| **Financial Year**                  | **Version of OPCS-4** |
+| Up to 31 March 2006                 | OPCS-4.2              |
+| 1 April 2006-31 March 2007          | OPCS-4.3              |
+| 1 April 2007- 31 March 2009         | OPCS-4.4              |
+| 1 April 2009 - 31 March 2011        | OPCS-4.5              |
+| 1 April 2011 – 31 March 2014        | OPCS-4.6              |
+| 1 April 2014 – 31 March 2017        | OPCS-4.7              |
+| 1 April 2017- 31 March 2020         | OPCS-4.8              |
+| 1 April 2020 – 31 March 2023        | OPCS-4.9              |
+| 1 April 2023 – Until further notice | OPCS-4.10             |
+
+: Table 1: OPCS-4 editions over time
+
+## Methdology for identifying new procedures
+
+By reviewing the list of codes with each release of the OPCS-4, we can identify the new procedure codes that have been added since 2006/07. The National Casemix Office publishes the [HRG4+ 2023/24 National Costs Grouper](https://digital.nhs.uk/services/national-casemix-office/downloads-groupers-and-tools/hrg4-2023-24-national-costs-grouper) which includes a Code to Group workbook containing a list of all procedure codes by the first edition of OPCS-4 which they appear in.
+
+In some cases new procedure codes can be added which are in fact replacements for combinations of procedure codes in the previous edition. To address this, we use the [table of coding equivalencies published by NHS Digital](https://isd.digital.nhs.uk/trud/users/guest/filters/0/categories/10/items/119/releases) to identify those procedures in the latest edition of OPCS-4 which did not exist, without equivalency, in OPCS-4.2, i.e. new procedures since 2006/07.
+
+We also exclude those codes in chapters Y and Z given that these relate to location and method and are essentially secondary descriptive codes.
+
+The figures by each calculation are shown below in table 2.
+
+```{r new_codes_counts}
+hrg_grouper <- read_excel(here("data", "HRG4++202324+National+Costs+Grouper+Code+To+Group+v1.0.xlsx"), sheet = "OPCS") |> 
+  janitor::clean_names()
+
+toce <- read_excel(here("data", "OPCS10 ToCE Analysis Nov 2022 V1.0.xlsx")) |> 
+  janitor::clean_names()
+
+hrg_grouper_new <- hrg_grouper |> 
+  filter(!(substring(opcs_code,1,1) %in% c("Y", "Z")),
+         introduced_in_opcs_4_version!="4.2")
+
+toce_new <- toce |> 
+  filter(opcs_4_2=="NONE",
+         !(substring(opcs_4_10,1,1) %in% c("Y", "Z")))
+```
+
+|                                          |                           |
+|------------------------------------------|---------------------------|
+| All codes added                          | `r nrow(hrg_grouper_new)` |
+| **Once equivalencies have been removed** | **`r nrow(toce_new)`**    |
+
+: Table 2: counts of procedures since OPCS-4.3
+
+## Identifying incidence of new procedures
+
+Secondary User Services (SUS) data is used to count the number of admissions and attendances associated with new procedures.
+
+A given hospital episode or outpatient attendance can have up to 24 procedure codes assigned to it, with the first being the primary procedure, which this analysis focuses on.
+
+Within inpatient admissions, we specifically review elective cases given that novel, emerging procedures are more likely to lead to new admissions for these cases, as opposed to non-elective or maternity admissions.
+
+There is a complication with regard to how to identify the primary procedure for a multi-episode spell in hospital as each episode will have its own primary procedure, with no way of identifying the single primary procedure for the entire stay. See tables 3 and 4 for an example below. This is also largely resolved through focusing on elective admissions, as over 99% of these comprise a single episode.
+
+```{r episodes_in_a_spell_example}
+tibble(
+  Der_Spell_ID = c("1704950529596980000", "1704950529596980000", "1704950529596980000", "1704950529596980000", "1704950529596980000"),
+  Episode_Number = c(1,2,3,4,5),
+  Der_Primary_Procedure_Code = c("", "K607", "", "U051",	"W246"),
+  Der_Procedure_Code_2 = c("", "Y534", "", "Y981", "Y535"),
+  Der_Procedure_Code_3 = c("", "", "", "", "Z768"),
+  Der_Procedure_Code_4 = c("", "", "", "", "Z942"),
+  Der_Procedure_Count = c(0, 2, 0, 2, 4),
+  Der_Procedure_All = c("", "K607,Y534", "", "U051,Y981", "W246,Y535,Z768,Z942")) |> 
+  knitr::kable(caption = "Table 3: the 5 episodes from the SUS APCE data set associated with a specific spell")
+  
+```
+
+```{r spell_example}
+tibble(Der_Spell_ID = "1704950529596980000",
+       Der_Episode_Count = 5,
+       Der_Procedure_Count = 8,
+       Der_Procedure_All = "||K607,Y534||U051,Y981||W246,Y535,Z768,Z942") |> 
+  knitr::kable(caption = "Table 4: the single row within the SUS APCS data set associated with a specific spell")
+```
+
+The following two SQL scripts provide an indication of the way in which the data are extracted for elective admissions and outpatient attendances. `new_codes` refers to the 666 codes that were identified as being added since OPCS-4.3 in 2006 (having excluded chapters Y and Z).
+
+``` sql
+-- incidence of elective admissions with primary procedure from OPCS-4.3 onwards
+select 
+  year([Admission_Date]) as [year], 
+  substring(Der_Procedure_All,3,4) as [primary_procedure], 
+  count(*) as [n] 
+from 
+  [SUS_APC].[APCS_Core] 
+where 
+  substring(Der_Procedure_All,3,4) in new_codes 
+  and year([Admission_Date]) between 2000 and 2022 
+  and left([Admission_Method], 1) = '1' 
+group by 
+  year([Admission_Date]), 
+  substring(Der_Procedure_All,3,4);
+```
+
+``` sql
+-- incidence of outpatient attendances with primary procedure from OPCS-4.3 onwards
+select 
+    year([Appointment_Date]) as [year], 
+    substring([Der_Procedure_All],1,4) as [primary_procedure], 
+    COUNT(*) as [n] 
+from [SUS_OPA].[OPA_Core] 
+where 
+    substring([Der_Procedure_All],1,4) in new_codes 
+    and year([Appointment_Date]) between 2000 and 2022
+group by 
+    year([Appointment_Date]), 
+    substring(Der_Procedure_All,1,4);
+```
+
+Due to unresolved data quality issues on SUS data prior to 2009 and the impact of the COVID pandemic from 2020, we only analyse data from 2009 to 2019. This means that, for the analysis of their use, we disregard OPCS-4.9 and OPCS-4.10 (which were in implemented in 2020/21 and 2023/24, respectively). For OPCS-4.3 and OPCS-4.4, it is harder to determine the adoption curves given the spurious data at the point they were implemented (2006/07 and 2007/08, respectively).
+
+## Exploratory analysis
+
+```{r load_data}
+sus_elective_data <- read.csv(here("data", "incidence of primary procedures since OPCS-4.2 (SUS APCS elective_only).csv"))
+
+sus_outpatient_data <- read.csv(here("data", "incidence of primary procedures since OPCS-4.2 (SUS OPA).csv"))
+```
+
+The following chart shows the procedure codes by chapter that were added with each edition since OPCS-4.3 using the [HRG4+ 2023/24 National Costs Grouper](https://digital.nhs.uk/services/national-casemix-office/downloads-groupers-and-tools/hrg4-2023-24-national-costs-grouper). We can see that OPCS-4.3 led to the introduction of many more new codes than any other edition since then. NB this plot does not account for equivalences.
+
+```{r new_procedures_by_version}
+hrg_grouper_new |>
+  filter(introduced_in_opcs_4_version != "4.2") |> 
+  mutate(
+    introduced_in_opcs_4_version = factor(
+      introduced_in_opcs_4_version,
+      levels = c(
+        "4.3", "4.4", "4.5", "4.6", "4.7", "4.8", "4.9", "4.10"
+        )
+      ),
+    Chapter = substring(opcs_code,1,1)
+    ) |>
+  ggplot(aes(x = Chapter, fill = Chapter)) +
+  geom_bar(position = "stack") +
+  facet_wrap(~introduced_in_opcs_4_version) + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank()) +
+  ylab("Count of new procedure codes") +
+  ggtitle("New procedure codes by chapter for OPCS 4.3 onwards") +
+  
+  NHSRtheme::scale_fill_nhs() 
+```
+
+The following two charts show the adoption curves for new procedures in OPCS-4.2 to OPCS-4.8 over the time period from 2006 to 2019 (noting previously mentioned issues with SUS data prior to 2009). We can see that there was far more activity associated with 4.3 than any other (which makes sense given it introduced far more codes).
+
+```{r elective_admissions_plot}
+sus_elective_data |>
+  filter(between(year, 2006, 2019) & version_introduced <= "4.8") |> 
+  summarise(n = sum(n), .by = c(version_introduced, year)) |>
+  ggplot(aes(x=year, y=n)) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, NA),labels = scales::comma) +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  facet_wrap(~version_introduced, scales = "free_y") +
+  ggtitle("Elective admissions over time by OPCS-4 version of primary procedure")+
+       
+  theme(axis.title = element_blank())
+```
+
+```{r outpatient_attendances_plot}
+sus_outpatient_data |>
+  filter(between(year, 2006, 2019) & version_introduced <= "4.8") |> 
+  summarise(n = sum(n), .by = c(version_introduced, year)) |>
+  ggplot(aes(x=year, y=n)) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, NA),labels = scales::comma) +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  facet_wrap(~version_introduced, scales = "free_y") +
+  ggtitle("Outpatient attendances over time by OPCS-4 version of primary procedure") +
+  theme(axis.title = element_blank())
+```
+
+<!-- We can more easily see the comparative trends in the following combined indexed chart. -->
+
+<!-- ```{r} -->
+
+<!-- # combine the data together -->
+
+<!-- elective_opa_new_procedures <- bind_rows( -->
+
+<!--   "Elective" = sus_elective_data, -->
+
+<!--   "Outpatient" = sus_outpatient_data, -->
+
+<!--   .id = "pod") -->
+
+<!-- # group and index the figures by year, OPCS version, and chapter -->
+
+<!-- elective_opa_new_procedures_indexed <- elective_opa_new_procedures |>  -->
+
+<!--   filter(between(year, 2006,2019), version_introduced <= 4.8) |>  -->
+
+<!--   summarise(n=sum(n), .by = c(year, pod, version_introduced)) |>  -->
+
+<!--   mutate(indexed_n = n / last(n, order_by = year), .by = c(pod, version_introduced)) |>  -->
+
+<!--   mutate(version_introduced = factor(version_introduced)) -->
+
+<!-- ggplot(elective_opa_new_procedures_indexed, -->
+
+<!--        aes(x=year, y=indexed_n, colour = version_introduced)) + -->
+
+<!--   geom_line(size = 1) + -->
+
+<!--   facet_wrap(~pod) + -->
+
+<!--   labs(title = "Uptake of OPCS-4 codes by version and point of delivery", -->
+
+<!--        subtitle = "Indexed to 2019 values", -->
+
+<!--        x = "Year", y = "Indexed value", -->
+
+<!--        colour = "OPCS-4 version") + -->
+
+<!--   NHSRtheme::scale_colour_nhs() + -->
+
+<!--   geom_vline(xintercept = 2006, linetype = "dashed", fontface=2) + -->
+
+<!--   annotate("text", label = "4.3", x = 2006, y = 0.5) + -->
+
+<!--   geom_vline(xintercept = 2007, linetype = "dashed", fontface=2) + -->
+
+<!--   annotate("text", label = "4.4", x = 2007, y = 0.5) + -->
+
+<!--   geom_vline(xintercept = 2009, linetype = "dashed", fontface=2) + -->
+
+<!--   annotate("text", label = "4.5", x = 2009, y = 0.5) + -->
+
+<!--   geom_vline(xintercept = 2011, linetype = "dashed", fontface=2) + -->
+
+<!--   annotate("text", label = "4.6", x = 2011, y = 0.5) + -->
+
+<!--   geom_vline(xintercept = 2014, linetype = "dashed", fontface=2) + -->
+
+<!--   annotate("text", label = "4.7", x = 2014, y = 0.5) + -->
+
+<!--   geom_vline(xintercept = 2017, linetype = "dashed", fontface=2) + -->
+
+<!--   annotate("text", label = "4.8", x = 2017, y = 0.5) -->
+
+<!-- ``` -->
+
+## Comparison of growth in new procedures to total activity
+
+```{r total_activity}
+# load in the data from track 1 NDG
+sus_activity_data <- readxl::read_excel(
+  here("data", "Hospital activity data (SUS).xlsx"))
+
+# filter to opa and elective and year up to 2019
+sus_opa_and_elective <- sus_activity_data |>
+  filter(pod %in% c("IpElec", "opAtt"),
+         yr <= 2019)
+
+# re-group the data
+sus_opa_and_elective <- sus_opa_and_elective |>
+  summarise(activity = sum(activity), .by = c(yr, pod))
+
+# combine the two procedures tables
+elective_opa_new_procedures <- bind_rows(
+  "IpElec" = sus_elective_data,
+  "opAtt" = sus_outpatient_data,
+  .id = "pod")
+
+# comparison --------------------------------------------------------------
+
+# we filter to 2009 to 2019 and count by pod and version_introduced
+new_procedures_year_version_2009_2019 <- elective_opa_new_procedures |>
+  filter(between(year, 2009, 2019), version_introduced <= "4.8") |>
+  summarise(n = sum(n), .by = c(pod, year, version_introduced))  |>
+  mutate(version_introduced = factor(version_introduced))
+
+```
+
+```{r new_procedures_vs_total_activity_plot}
+ggplot() +
+  geom_col(data = new_procedures_year_version_2009_2019, aes(x=year, y=n, fill = version_introduced)) +
+  geom_line(data = sus_opa_and_elective, aes(x=yr,y=activity)) +
+  facet_wrap(~pod, scales = "free_y") +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  scale_y_continuous(labels = scales::comma_format()) +
+  labs(title = "Comparison of total activity and activity associated with new procedures",
+       subtitle = "By OPCS-4 chapter",
+       fill = "OPCS-4 version") +
+  theme(axis.title = element_blank()) +
+  NHSRtheme::scale_fill_nhs()
+```
+
+## Estimated impact of new procedures
+
+Reviewing the adoption curves of the new codes by OPCS version, we might suggest that there is a period of 4 years after which we consider them to no longer be new, emerging technology.
+
+```{r four_year_cut_off}
+new_procedures_year_version_2009_2019_4_yr_cut <- new_procedures_year_version_2009_2019 |> 
+  mutate(new_opcs_release = case_when(version_introduced=="4.3" & year <= 2010 ~ TRUE,
+                                      version_introduced=="4.4" & year <= 2011 ~ TRUE,
+                                      version_introduced=="4.5" & year <= 2013 ~ TRUE,
+                                      version_introduced=="4.6" & year <= 2015 ~ TRUE,
+                                      version_introduced=="4.7" & year <= 2017 ~ TRUE,
+                                      version_introduced=="4.8" & year <= 2021 ~ TRUE,
+                                      TRUE ~ FALSE))
+```
+
+We can see in the below plot that this indicates minuscule impacts from new procedures once we have ignored their incidence after 4 years from the release of the OPCS-4 version in which they were introduced. The vast majority of admissions and attendances in the previous plot were from OPCS-4.3 in the previous plot which was released in April 2006. We can therefore see that after 2010, the amount of activity attributable to new procedures by this definition goes down significantly.
+
+```{r plot_4_yr_cut_v1}
+ggplot() +
+  geom_col(data = filter(new_procedures_year_version_2009_2019_4_yr_cut, new_opcs_release), aes(x=year, y=n, fill = version_introduced)) +
+  geom_line(data = sus_opa_and_elective, aes(x=yr,y=activity)) +
+  facet_wrap(~pod, scales = "free_y") +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  scale_y_continuous(labels = scales::comma_format()) +
+  labs(title = "Comparison of total activity and activity associated with new procedures",
+       subtitle = "By OPCS-4 chapter",
+       fill = "OPCS-4 version") +
+  theme(axis.title = element_blank()) +
+  NHSRtheme::scale_fill_nhs()
+
+```
+
+## Limitations
+
+1.  One major limitation of this analysis is that we are inherently supposing that, if the procedure did not exist, the activity would not have happened. We do not know that this is case as it may be that a previous procedure would have been used. We have attempted to mitigate this by focusing on elective and outpatient procedures, given that these seem more likely to occur *because* *of* new procedures than emergency department attendances or emergency admissions.
+2.  We have attempted to proxy new medical procedures through looking at codes which exist in the current OPCS-4.10 and did not exist, without equivalency, in OPCS-4.2 (which was the main classification from 1989 to 2006). However, it is possible that this is missing codes which were brought in in intermediary editions of OPCS-4 but removed prior to the current edition.
+3.  In many cases a combination of OPCS-4 codes are required to fully represent a procedure being performed by adding on specificity with the Chapter Y Subsidiary Classification of Methods of Operation codes and/or Chapter Z Subsidiary Classification of Sites of Operation codes. By focusing on primary procedure codes in this analysis, we may be missing new procedures that are not represented by new codes, but new combinations of codes.
+4.  The SUS data is unreliable prior to 2008, with extremely low numbers. This has hampered our ability to review the adoption curves of OPCS-4.3 and OPCS-4.3, which were introduced in 2006 and 2007, respectively.
+5.  We have not found a way to identify primary procedure for a multi-episode spell (where more than one episode has procedure codes). This is largely resolved through the focus on elective admissions, but we may wish to consider non-elective admissions at some point.
+6.  The impact of the COVID pandemic has led to us ignoring any data from 2020, which means OPCS-4.9 and OPCS-4.10 have been excluded from the analysis.
