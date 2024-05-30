@@ -122,7 +122,7 @@ toce_new <- toce |>
 
 ## Identifying incidence of new procedures
 
-Secondary User Services (SUS) data is used to count the number of admissions and attendances associated with new procedures.
+Hospital Episode Statistics (HES) data is used to count the number of admissions and attendances associated with new procedures.
 
 A given hospital episode or outpatient attendance can have up to 24 procedure codes assigned to it, with the first being the primary procedure, which this analysis focuses on.
 
@@ -152,49 +152,84 @@ tibble(Der_Spell_ID = "1704950529596980000",
   knitr::kable(caption = "Table 4: the single row within the SUS APCS data set associated with a specific spell")
 ```
 
-The following two SQL scripts provide an indication of the way in which the data are extracted for elective admissions and outpatient attendances. `new_codes` refers to the 666 codes that were identified as being added since OPCS-4.3 in 2006 (having excluded chapters Y and Z).
+The following SQL script shows the way in which the data are extracted for elective admissions and outpatient attendances. `new_codes` refers to the 666 codes that were identified as being added since OPCS-4.3 in 2006 (having excluded chapters Y and Z).
 
 ``` sql
--- incidence of elective admissions with primary procedure from OPCS-4.3 onwards
 select 
-  year([Admission_Date]) as [year], 
-  substring(Der_Procedure_All,3,4) as [primary_procedure], 
-  count(*) as [n] 
+	'elective inpatients' as pod,
+	year([OPDATE]) as [year], 
+	[OPCODE] as [primary_procedure], 
+	count(*) as [n] 
 from 
-  [SUS_APC].[APCS_Core] 
+	[HESdata].[dbo].[tbInpatients]
+left outer join 
+	[HESdata].[dbo].[tbInpatientsProcedures]
+	on [HESdata].[dbo].[tbInpatients].FYEAR = [HESdata].[dbo].[tbInpatientsProcedures].FYEAR
+	and [HESdata].[dbo].[tbInpatients].EPIKEY = [HESdata].[dbo].[tbInpatientsProcedures].EPIKEY
 where 
-  substring(Der_Procedure_All,3,4) in new_codes 
-  and year([Admission_Date]) between 2000 and 2022 
-  and left([Admission_Method], 1) = '1' 
+	[OPCODE] in new_codes
+	and year([OPDATE]) between 2000 and 2019
+	and OPORDER = 1
+	and left([ADMIMETH], 1) = '1' 
 group by 
-  year([Admission_Date]), 
-  substring(Der_Procedure_All,3,4);
+	year([OPDATE]), 
+	[OPCODE]
+union all
+select
+	'outpatient attendances' as pod, 
+	year([APPTDATE]) as [year],
+	[OPCODE] as [primary procedure],
+	count(*) as [n]
+from
+	[HESdata].[dbo].[tbOutpatients]
+left outer join 
+	[HESdata].[dbo].[tbOutpatientsProcedures]
+	on [HESdata].[dbo].[tbOutpatients].ATTENDKEY = [HESdata].[dbo].[tbOutpatientsProcedures].ATTENDKEY
+where
+	[OPCODE] in new_codes
+	and year([APPTDATE]) between 2000 and 2019
+	and [OPORDER] = 1
+group by 
+	year([APPTDATE]),
+	[OPCODE] ;
+	
 ```
 
-``` sql
--- incidence of outpatient attendances with primary procedure from OPCS-4.3 onwards
-select 
-    year([Appointment_Date]) as [year], 
-    substring([Der_Procedure_All],1,4) as [primary_procedure], 
-    COUNT(*) as [n] 
-from [SUS_OPA].[OPA_Core] 
-where 
-    substring([Der_Procedure_All],1,4) in new_codes 
-    and year([Appointment_Date]) between 2000 and 2022
-group by 
-    year([Appointment_Date]), 
-    substring(Der_Procedure_All,1,4);
-```
-
-Due to unresolved data quality issues on SUS data prior to 2009 and the impact of the COVID pandemic from 2020, we only analyse data from 2009 to 2019. This means that, for the analysis of their use, we disregard OPCS-4.9 and OPCS-4.10 (which were in implemented in 2020/21 and 2023/24, respectively). For OPCS-4.3 and OPCS-4.4, it is harder to determine the adoption curves given the spurious data at the point they were implemented (2006/07 and 2007/08, respectively).
+Due to the impact of the COVID pandemic from 2020, we only analyse data from 2006 to 2019. This means that, for the analysis of their use, we disregard OPCS-4.9 and OPCS-4.10 (which were in implemented in 2020/21 and 2023/24, respectively). 
 
 ## Exploratory analysis
 
 ```{r load_data}
-sus_elective_data <- read.csv(here("data", "incidence of primary procedures since OPCS-4.2 (SUS APCS elective_only).csv"))
-
-sus_outpatient_data <- read.csv(here("data", "incidence of primary procedures since OPCS-4.2 (SUS OPA).csv"))
+data <- readxl::read_excel(
+  here("data", "hes_output_sw_SUenv_240529.xlsx")
+)
 ```
+
+```{r opcs_version_lookup}
+codes_by_version <- read_excel(
+  here("data","HRG4++202324+National+Costs+Grouper+Code+To+Group+v1.0.xlsx"),
+  sheet = "OPCS")
+
+#change the names
+names(codes_by_version) <- c("code", "description", "version_introduced")
+
+# join the data
+new_procedure_counts_full <- left_join(
+  data,
+  codes_by_version,
+  by = c("primary_procedure" = "code"))
+
+# Remove the codes from 4.9 and 4.8 due to COVID and DQ
+new_procedure_counts_full <- new_procedure_counts_full |>
+  filter(version_introduced != c("4.9", "4.10"))
+
+# re-organise the columns
+new_procedure_counts_full <- new_procedure_counts_full |>
+  select(pod,year, primary_procedure, description, version_introduced, n) |> 
+  filter(year >= 2006)
+
+```
+
 
 The following chart shows the procedure codes by chapter that were added with each edition since OPCS-4.3 using the [HRG4+ 2023/24 National Costs Grouper](https://digital.nhs.uk/services/national-casemix-office/downloads-groupers-and-tools/hrg4-2023-24-national-costs-grouper). We can see that OPCS-4.3 led to the introduction of many more new codes than any other edition since then. NB this plot does not account for equivalences.
 
@@ -225,8 +260,8 @@ hrg_grouper_new |>
 The following two charts show the adoption curves for new procedures in OPCS-4.2 to OPCS-4.8 over the time period from 2006 to 2019 (noting previously mentioned issues with SUS data prior to 2009). We can see that there was far more activity associated with 4.3 than any other (which makes sense given it introduced far more codes).
 
 ```{r elective_admissions_plot}
-sus_elective_data |>
-  filter(between(year, 2006, 2019) & version_introduced <= "4.8") |> 
+new_procedure_counts_full |>
+  filter(pod == "elective inpatients") |> 
   summarise(n = sum(n), .by = c(version_introduced, year)) |>
   ggplot(aes(x=year, y=n)) +
   geom_line() +
@@ -239,8 +274,8 @@ sus_elective_data |>
 ```
 
 ```{r outpatient_attendances_plot}
-sus_outpatient_data |>
-  filter(between(year, 2006, 2019) & version_introduced <= "4.8") |> 
+new_procedure_counts_full |>
+  filter(pod == "outpatient attendances") |> 
   summarise(n = sum(n), .by = c(version_introduced, year)) |>
   ggplot(aes(x=year, y=n)) +
   geom_line() +
@@ -325,38 +360,28 @@ sus_outpatient_data |>
 
 ```{r total_activity}
 # load in the data from track 1 NDG
-sus_activity_data <- readxl::read_excel(
-  here("data", "Hospital activity data (SUS).xlsx"))
+hes_activity_data <- read.csv(
+  here("data", "Hospital activity data (HES).csv"))
 
 # filter to opa and elective and year up to 2019
-sus_opa_and_elective <- sus_activity_data |>
+hes_opa_and_elective <- hes_activity_data |>
   filter(pod %in% c("IpElec", "opAtt"),
          yr <= 2019)
 
 # re-group the data
-sus_opa_and_elective <- sus_opa_and_elective |>
-  summarise(activity = sum(activity), .by = c(yr, pod))
+hes_opa_and_elective <- hes_opa_and_elective |>
+  summarise(activity = sum(activity), .by = c(yr, pod)) |> 
+  #rename the pods
+  mutate(pod = if_else(pod=="IpElec", "elective inpatients", "outpatient attendances"))
 
-# combine the two procedures tables
-elective_opa_new_procedures <- bind_rows(
-  "IpElec" = sus_elective_data,
-  "opAtt" = sus_outpatient_data,
-  .id = "pod")
-
-# comparison --------------------------------------------------------------
-
-# we filter to 2009 to 2019 and count by pod and version_introduced
-new_procedures_year_version_2009_2019 <- elective_opa_new_procedures |>
-  filter(between(year, 2009, 2019), version_introduced <= "4.8") |>
-  summarise(n = sum(n), .by = c(pod, year, version_introduced))  |>
-  mutate(version_introduced = factor(version_introduced))
+new_procedure_counts_by_year_pod_version <- summarise(new_procedure_counts_full, n=sum(n), .by = c(year, version_introduced, pod))
 
 ```
 
 ```{r new_procedures_vs_total_activity_plot}
 ggplot() +
-  geom_col(data = new_procedures_year_version_2009_2019, aes(x=year, y=n, fill = version_introduced)) +
-  geom_line(data = sus_opa_and_elective, aes(x=yr,y=activity)) +
+  geom_col(data = new_procedure_counts_by_year_pod_version, aes(x=year, y=n, fill = version_introduced)) +
+  geom_line(data = hes_opa_and_elective, aes(x=yr,y=activity)) +
   facet_wrap(~pod, scales = "free_y") +
   scale_x_continuous(breaks = scales::pretty_breaks()) +
   scale_y_continuous(labels = scales::comma_format()) +
@@ -372,7 +397,7 @@ ggplot() +
 Reviewing the adoption curves of the new codes by OPCS version, we might suggest that there is a period of 4 years after which we consider them to no longer be new, emerging technology.
 
 ```{r four_year_cut_off}
-new_procedures_year_version_2009_2019_4_yr_cut <- new_procedures_year_version_2009_2019 |> 
+new_procedure_counts_by_year_pod_version_4_yr_cut <- new_procedure_counts_by_year_pod_version |> 
   mutate(new_opcs_release = case_when(version_introduced=="4.3" & year <= 2010 ~ TRUE,
                                       version_introduced=="4.4" & year <= 2011 ~ TRUE,
                                       version_introduced=="4.5" & year <= 2013 ~ TRUE,
@@ -386,8 +411,8 @@ We can see in the below plot that this indicates minuscule impacts from new proc
 
 ```{r plot_4_yr_cut_v1}
 ggplot() +
-  geom_col(data = filter(new_procedures_year_version_2009_2019_4_yr_cut, new_opcs_release), aes(x=year, y=n, fill = version_introduced)) +
-  geom_line(data = sus_opa_and_elective, aes(x=yr,y=activity)) +
+  geom_col(data = filter(new_procedure_counts_by_year_pod_version_4_yr_cut, new_opcs_release), aes(x=year, y=n, fill = version_introduced)) +
+  geom_line(data = hes_opa_and_elective, aes(x=yr,y=activity)) +
   facet_wrap(~pod, scales = "free_y") +
   scale_x_continuous(breaks = scales::pretty_breaks()) +
   scale_y_continuous(labels = scales::comma_format()) +
@@ -404,6 +429,5 @@ ggplot() +
 1.  One major limitation of this analysis is that we are inherently supposing that, if the procedure did not exist, the activity would not have happened. We do not know that this is case as it may be that a previous procedure would have been used. We have attempted to mitigate this by focusing on elective and outpatient procedures, given that these seem more likely to occur *because* *of* new procedures than emergency department attendances or emergency admissions.
 2.  We have attempted to proxy new medical procedures through looking at codes which exist in the current OPCS-4.10 and did not exist, without equivalency, in OPCS-4.2 (which was the main classification from 1989 to 2006). However, it is possible that this is missing codes which were brought in in intermediary editions of OPCS-4 but removed prior to the current edition.
 3.  In many cases a combination of OPCS-4 codes are required to fully represent a procedure being performed by adding on specificity with the Chapter Y Subsidiary Classification of Methods of Operation codes and/or Chapter Z Subsidiary Classification of Sites of Operation codes. By focusing on primary procedure codes in this analysis, we may be missing new procedures that are not represented by new codes, but new combinations of codes.
-4.  The SUS data is unreliable prior to 2008, with extremely low numbers. This has hampered our ability to review the adoption curves of OPCS-4.3 and OPCS-4.3, which were introduced in 2006 and 2007, respectively.
-5.  We have not found a way to identify primary procedure for a multi-episode spell (where more than one episode has procedure codes). This is largely resolved through the focus on elective admissions, but we may wish to consider non-elective admissions at some point.
-6.  The impact of the COVID pandemic has led to us ignoring any data from 2020, which means OPCS-4.9 and OPCS-4.10 have been excluded from the analysis.
+6.  We have not found a way to identify primary procedure for a multi-episode spell (where more than one episode has procedure codes). This is largely resolved through the focus on elective admissions, but we may wish to consider non-elective admissions at some point.
+7.  The impact of the COVID pandemic has led to us ignoring any data from 2020, which means OPCS-4.9 and OPCS-4.10 have been excluded from the analysis.
