@@ -156,46 +156,46 @@ The following SQL script shows the way in which the data are extracted for elect
 
 ``` sql
 select 
-	'elective inpatients' as pod,
-	year([OPDATE]) as [year], 
-	[OPCODE] as [primary_procedure], 
-	count(*) as [n] 
+    'elective inpatients' as pod,
+    year([OPDATE]) as [year], 
+    [OPCODE] as [primary_procedure], 
+    count(*) as [n] 
 from 
-	[HESdata].[dbo].[tbInpatients]
+    [HESdata].[dbo].[tbInpatients]
 left outer join 
-	[HESdata].[dbo].[tbInpatientsProcedures]
-	on [HESdata].[dbo].[tbInpatients].FYEAR = [HESdata].[dbo].[tbInpatientsProcedures].FYEAR
-	and [HESdata].[dbo].[tbInpatients].EPIKEY = [HESdata].[dbo].[tbInpatientsProcedures].EPIKEY
+    [HESdata].[dbo].[tbInpatientsProcedures]
+    on [HESdata].[dbo].[tbInpatients].FYEAR = [HESdata].[dbo].[tbInpatientsProcedures].FYEAR
+    and [HESdata].[dbo].[tbInpatients].EPIKEY = [HESdata].[dbo].[tbInpatientsProcedures].EPIKEY
 where 
-	[OPCODE] in new_codes
-	and year([OPDATE]) between 2000 and 2019
-	and OPORDER = 1
-	and left([ADMIMETH], 1) = '1' 
+    [OPCODE] in new_codes
+    and year([OPDATE]) between 2000 and 2019
+    and OPORDER = 1
+    and left([ADMIMETH], 1) = '1' 
 group by 
-	year([OPDATE]), 
-	[OPCODE]
+    year([OPDATE]), 
+    [OPCODE]
 union all
 select
-	'outpatient attendances' as pod, 
-	year([APPTDATE]) as [year],
-	[OPCODE] as [primary procedure],
-	count(*) as [n]
+    'outpatient attendances' as pod, 
+    year([APPTDATE]) as [year],
+    [OPCODE] as [primary procedure],
+    count(*) as [n]
 from
-	[HESdata].[dbo].[tbOutpatients]
+    [HESdata].[dbo].[tbOutpatients]
 left outer join 
-	[HESdata].[dbo].[tbOutpatientsProcedures]
-	on [HESdata].[dbo].[tbOutpatients].ATTENDKEY = [HESdata].[dbo].[tbOutpatientsProcedures].ATTENDKEY
+    [HESdata].[dbo].[tbOutpatientsProcedures]
+    on [HESdata].[dbo].[tbOutpatients].ATTENDKEY = [HESdata].[dbo].[tbOutpatientsProcedures].ATTENDKEY
 where
-	[OPCODE] in new_codes
-	and year([APPTDATE]) between 2000 and 2019
-	and [OPORDER] = 1
+    [OPCODE] in new_codes
+    and year([APPTDATE]) between 2000 and 2019
+    and [OPORDER] = 1
 group by 
-	year([APPTDATE]),
-	[OPCODE] ;
-	
+    year([APPTDATE]),
+    [OPCODE] ;
+    
 ```
 
-Due to the impact of the COVID pandemic from 2020, we only analyse data from 2006 to 2019. This means that, for the analysis of their use, we disregard OPCS-4.9 and OPCS-4.10 (which were in implemented in 2020/21 and 2023/24, respectively). 
+Due to the impact of the COVID pandemic from 2020, we only analyse data from 2006 to 2019. This means that, for the analysis of their use, we disregard OPCS-4.9 and OPCS-4.10 (which were in implemented in 2020/21 and 2023/24, respectively).
 
 ## Exploratory analysis
 
@@ -229,7 +229,6 @@ new_procedure_counts_full <- new_procedure_counts_full |>
   filter(year >= 2006)
 
 ```
-
 
 The following chart shows the procedure codes by chapter that were added with each edition since OPCS-4.3 using the [HRG4+ 2023/24 National Costs Grouper](https://digital.nhs.uk/services/national-casemix-office/downloads-groupers-and-tools/hrg4-2023-24-national-costs-grouper). We can see that OPCS-4.3 led to the introduction of many more new codes than any other edition since then. NB this plot does not account for equivalences.
 
