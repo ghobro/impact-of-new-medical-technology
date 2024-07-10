@@ -95,7 +95,7 @@ In some cases new procedure codes can be added which are in fact replacements fo
 
 For example, code A11.3 (*Monitoring of pressure in tissue of brain*) first appeared in OPCS-4.5, but the procedure had previously been covered by the combination of A10.8 (*Other specified other operations on tissue of brain*) and Y44.2 (*Monitoring of pressure in organ NOC*).
 
-Similarly, E63.4 (*Endoscopic ultrasound examination of mediastinum and biopsy of lesion of mediastinum*) was introduced in OPCS-4.9, but has a more convoluted history of antecedents. In OPCS-4.2, its equivalent was the combination of E63.8 (*Other specified diagnostic endoscopic examination of mediastinum*), Y41.8 (*Other specified examination of organ NOC*) and any code from the group Y20 (*Biopsy of organ NOC*). In OPCS-4.3 and 4.4, Y41.8 was replaced by either Y41.2 (*Endoscopic ultrasound staging examination of organ NOC*) or Y41.3 (*Endoscopic ultrasound examination of organ NOC*). From OPCS-4.5 to OPCS-4.8, it was the combination of E63.2 (*Endobronchial ultrasound examination of mediastinum*) and any code from group Y20. We can see this in the table below:
+Similarly, E63.4 (*Endoscopic ultrasound examination of mediastinum and biopsy of lesion of mediastinum*) was introduced in OPCS-4.9, but has a more convoluted history of antecedents. In OPCS-4.2, its equivalent was the combination of E63.8 (*Other specified diagnostic endoscopic examination of mediastinum*), Y41.8 (*Other specified examination of organ NOC*) and any code from the group Y20 (*Biopsy of organ NOC*). In OPCS-4.3 and 4.4, Y41.8 was replaced by either Y41.2 (*Endoscopic ultrasound staging examination of organ NOC*) or Y41.3 (*Endoscopic ultrasound examination of organ NOC*). From OPCS-4.5 to OPCS-4.8, it was the combination of E63.2 (*Endobronchial ultrasound examination of mediastinum*) and any code from group Y20. We can see this in table 2 below:
 
 | OPCS version | Code                                                   |
 |--------------|--------------------------------------------------------|
@@ -104,13 +104,13 @@ Similarly, E63.4 (*Endoscopic ultrasound examination of mediastinum and biopsy o
 | 4.5 -- 4.8   | E63.2 + Y20.-                                          |
 | 4.9 -- 4.10  | E63.4                                                  |
 
-: An example of the previous coding equivalencies for code E63.4
+: Table 2: An example of the previous coding equivalencies for code E63.4
 
 **To account for this we set our list of new procedures as those procedure codes in 4.10 which did not exist, without equivalency, in 4.2.**
 
 We also exclude those codes in chapters Y and Z given that these relate to location and method and are essentially secondary descriptive codes.
 
-The figures by each calculation are shown below in table 2.
+The figures by each calculation are shown below in table 3.
 
 ```{r new_codes_counts}
 hrg_grouper <- read_excel(here("data", "HRG4++202324+National+Costs+Grouper+Code+To+Group+v1.0.xlsx"), sheet = "OPCS") |> 
@@ -133,7 +133,7 @@ toce_new <- toce |>
 | All codes added                          | `r nrow(hrg_grouper_new)` |
 | **Once equivalencies have been removed** | **`r nrow(toce_new)`**    |
 
-: Table 2: counts of procedures since OPCS-4.3
+: Table 3: counts of procedures since OPCS-4.3
 
 A full list of these procedures can be seen in the appendix.
 
@@ -145,7 +145,7 @@ A given hospital episode or outpatient attendance can have up to 24 procedure co
 
 Within inpatient admissions, we specifically review elective cases given that novel, emerging procedures are more likely to lead to new admissions for these cases, as opposed to non-elective or maternity admissions.
 
-There is a complication with regard to how to identify the primary procedure for a multi-episode spell in hospital as each episode will have its own primary procedure, with no way of identifying the single primary procedure for the entire stay. See tables 3 and 4 for an example below. This is also largely resolved through focusing on elective admissions, as over 99% of these comprise a single episode.
+There is a complication with regard to how to identify the primary procedure for a multi-episode spell in hospital as each episode will have its own primary procedure, with no way of identifying the single primary procedure for the entire stay. See tables 4 and 5 for an example below. This is also largely resolved through focusing on elective admissions, as over 99% of these comprise a single episode.
 
 ```{r episodes_in_a_spell_example}
 tibble(
@@ -157,7 +157,7 @@ tibble(
   Der_Procedure_Code_4 = c("", "", "", "", "Z942"),
   Der_Procedure_Count = c(0, 2, 0, 2, 4),
   Der_Procedure_All = c("", "K607,Y534", "", "U051,Y981", "W246,Y535,Z768,Z942")) |> 
-  knitr::kable(caption = "Table 3: the 5 episodes from the SUS APCE data set associated with a specific spell")
+  knitr::kable(caption = "Table 4: the 5 episodes from the SUS APCE data set associated with a specific spell")
   
 ```
 
@@ -166,7 +166,7 @@ tibble(Der_Spell_ID = "1704950529596980000",
        Der_Episode_Count = 5,
        Der_Procedure_Count = 8,
        Der_Procedure_All = "||K607,Y534||U051,Y981||W246,Y535,Z768,Z942") |> 
-  knitr::kable(caption = "Table 4: the single row within the SUS APCS data set associated with a specific spell")
+  knitr::kable(caption = "Table 5: the single row within the SUS APCS data set associated with a specific spell")
 ```
 
 The following SQL script shows the way in which the data are extracted for elective admissions and outpatient attendances. `new_codes` refers to the 666 codes that were identified as being added since OPCS-4.3 in 2006 (having excluded chapters Y and Z). Note that this includes "other" procedures which are essentially the complement of the `new_codes` so that the data includes all admissions and attendances.
