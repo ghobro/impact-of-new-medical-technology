@@ -555,7 +555,7 @@ bind_rows(new_procedures = new_procedure_counts_by_year_pod_4_yr_cutoff,
 
 ## Appendix - full list of procedure codes used in analysis
 
-```{r}
+```{r appendix}
 toce_new_list <- toce_new$opcs_4_10
 toce_new_list <- stringr::str_remove(toce_new_list, "\\.")
 
