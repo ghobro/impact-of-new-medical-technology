@@ -135,6 +135,8 @@ toce_new <- toce |>
 
 : Table 2: counts of procedures since OPCS-4.3
 
+A full list of these procedures can be seen in the appendix.
+
 ## Identifying incidence of new procedures
 
 Secondary User Services (SUS) data is used to count the number of admissions and attendances associated with new procedures.
@@ -422,3 +424,14 @@ ggplot() +
 4.  The SUS data is unreliable prior to 2008, with extremely low numbers. This has hampered our ability to review the adoption curves of OPCS-4.3 and OPCS-4.3, which were introduced in 2006 and 2007, respectively.
 5.  We have not found a way to identify primary procedure for a multi-episode spell (where more than one episode has procedure codes). This is largely resolved through the focus on elective admissions, but we may wish to consider non-elective admissions at some point.
 6.  The impact of the COVID pandemic has led to us ignoring any data from 2020, which means OPCS-4.9 and OPCS-4.10 have been excluded from the analysis.
+
+## Appendix - full list of procedure codes used in analysis
+
+```{r}
+toce_new_list <- toce_new$opcs_4_10
+toce_new_list <- stringr::str_remove(toce_new_list, "\\.")
+
+hrg_grouper |> 
+  filter(opcs_code %in% toce_new_list) |> 
+  knitr::kable(col.names = c("OPCS-4 code", "Description", "Version introduced"))
+```
