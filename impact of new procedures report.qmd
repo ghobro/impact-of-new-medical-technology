@@ -72,26 +72,41 @@ A comprehensive list of all procedure codes can be found at <https://classbrowse
 
 The OPCS-4 originates from the 1970 publication *Classification of Surgical Operations* by the Office of Population Censuses and Surveys (OPCS), with this being adapted numerous times until the 1989 release of OPCS-4.2. The next edition was OPSC-4.3 in 2006, and there have been numerous editions since then, tabulated in table 1.
 
-|                                     |                       |
-|-------------------------------------|-----------------------|
-| **Financial Year**                  | **Version of OPCS-4** |
-| Up to 31 March 2006                 | OPCS-4.2              |
-| 1 April 2006-31 March 2007          | OPCS-4.3              |
-| 1 April 2007- 31 March 2009         | OPCS-4.4              |
-| 1 April 2009 - 31 March 2011        | OPCS-4.5              |
-| 1 April 2011 – 31 March 2014        | OPCS-4.6              |
-| 1 April 2014 – 31 March 2017        | OPCS-4.7              |
-| 1 April 2017- 31 March 2020         | OPCS-4.8              |
-| 1 April 2020 – 31 March 2023        | OPCS-4.9              |
-| 1 April 2023 – Until further notice | OPCS-4.10             |
+|                                      |                       |
+|--------------------------------------|-----------------------|
+| **Financial Year**                   | **Version of OPCS-4** |
+| Up to 31 March 2006                  | OPCS-4.2              |
+| 1 April 2006-31 March 2007           | OPCS-4.3              |
+| 1 April 2007- 31 March 2009          | OPCS-4.4              |
+| 1 April 2009 - 31 March 2011         | OPCS-4.5              |
+| 1 April 2011 -- 31 March 2014        | OPCS-4.6              |
+| 1 April 2014 -- 31 March 2017        | OPCS-4.7              |
+| 1 April 2017- 31 March 2020          | OPCS-4.8              |
+| 1 April 2020 -- 31 March 2023        | OPCS-4.9              |
+| 1 April 2023 -- Until further notice | OPCS-4.10             |
 
 : Table 1: OPCS-4 editions over time
 
-## Methdology for identifying new procedures
+## Methodology for identifying new procedures
 
 By reviewing the list of codes with each release of the OPCS-4, we can identify the new procedure codes that have been added since 2006/07. The National Casemix Office publishes the [HRG4+ 2023/24 National Costs Grouper](https://digital.nhs.uk/services/national-casemix-office/downloads-groupers-and-tools/hrg4-2023-24-national-costs-grouper) which includes a Code to Group workbook containing a list of all procedure codes by the first edition of OPCS-4 which they appear in.
 
-In some cases new procedure codes can be added which are in fact replacements for combinations of procedure codes in the previous edition. To address this, we use the [table of coding equivalencies published by NHS Digital](https://isd.digital.nhs.uk/trud/users/guest/filters/0/categories/10/items/119/releases) to identify those procedures in the latest edition of OPCS-4 which did not exist, without equivalency, in OPCS-4.2, i.e. new procedures since 2006/07.
+In some cases new procedure codes can be added which are in fact replacements for combinations of procedure codes in the previous edition. The [table of coding equivalencies published by NHS Digital](https://isd.digital.nhs.uk/trud/users/guest/filters/0/categories/10/items/119/releases) provides an explanation of all codes in 4.10 by their history of equivalents in the previous editions, including where a new code is replacing a combination of previous codes.
+
+For example, code A11.3 (*Monitoring of pressure in tissue of brain*) first appeared in OPCS-4.5, but the procedure had previously been covered by the combination of A10.8 (*Other specified other operations on tissue of brain*) and Y44.2 (*Monitoring of pressure in organ NOC*).
+
+Similarly, E63.4 (*Endoscopic ultrasound examination of mediastinum and biopsy of lesion of mediastinum*) was introduced in OPCS-4.9, but has a more convoluted history of antecedents. In OPCS-4.2, its equivalent was the combination of E63.8 (*Other specified diagnostic endoscopic examination of mediastinum*), Y41.8 (*Other specified examination of organ NOC*) and any code from the group Y20 (*Biopsy of organ NOC*). In OPCS-4.3 and 4.4, Y41.8 was replaced by either Y41.2 (*Endoscopic ultrasound staging examination of organ NOC*) or Y41.3 (*Endoscopic ultrasound examination of organ NOC*). From OPCS-4.5 to OPCS-4.8, it was the combination of E63.2 (*Endobronchial ultrasound examination of mediastinum*) and any code from group Y20. We can see this in the table below:
+
+| OPCS version | Code                                                   |
+|--------------|--------------------------------------------------------|
+| 4.2          | E63.8 + Y41.8 + Y20.-                                  |
+| 4.3 -- 4.4   | ( E63.8 + Y41.2 + Y20.- ) or ( E63.8 + Y41.3 + Y20.- ) |
+| 4.5 -- 4.8   | E63.2 + Y20.-                                          |
+| 4.9 -- 4.10  | E63.4                                                  |
+
+: An example of the previous coding equivalencies for code E63.4
+
+**To account for this we set our list of new procedures as those procedure codes in 4.10 which did not exist, without equivalency, in 4.2.**
 
 We also exclude those codes in chapters Y and Z given that these relate to location and method and are essentially secondary descriptive codes.
 
