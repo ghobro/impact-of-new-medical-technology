@@ -470,6 +470,27 @@ ggplot() +
   NHSRtheme::scale_fill_nhs()
 ```
 
+We can also view the level of activity associated with new procedure codes as a proportion of the total activity.
+
+```{r proportion_plot}
+new_procedure_counts_by_year_pod <- new_procedures |> summarise(n = sum(n), .by = c(year, pod))
+
+bind_rows(new_procedures = new_procedure_counts_by_year_pod,
+          all_activity = hes_opa_and_elective,
+          .id = "data") |> 
+  pivot_wider(names_from = data, values_from = n) |> 
+  mutate(new_procedures_p = new_procedures/all_activity) |> 
+  ggplot(aes(x = year, y = new_procedures_p, colour = pod)) +
+  geom_line(size=1) +
+  NHSRtheme::theme_nhs() +
+  NHSRtheme::scale_colour_nhs() +
+  xlab("Year") +
+  ylab("Proportion") +
+  ggtitle("New procedures as proportion of total activity") +
+  scale_x_continuous(limits = c(2005,NA)) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(plot.title = element_text(size=14))
+```
 ## Estimated impact of new procedures
 
 Reviewing the adoption curves of the new codes by OPCS version, we might suggest that there is a period of 4 years after which we consider them to no longer be new, emerging technology.
@@ -495,11 +516,32 @@ ggplot() +
   scale_x_continuous(breaks = scales::pretty_breaks()) +
   scale_y_continuous(labels = scales::comma_format()) +
   labs(title = "Comparison of total activity and activity associated with new procedures",
-       subtitle = "By OPCS-4 chapter",
+       subtitle = "By OPCS-4 chapter; with 4-year cut-off",
        fill = "OPCS-4 version") +
   theme(axis.title = element_blank()) +
   NHSRtheme::scale_fill_nhs()
 
+```
+We can see this much more clearly when we view the trend in the proportion of activity that involves new procedures is presented.
+
+```{r proportion_plot_4_yr_cut_off}
+new_procedure_counts_by_year_pod_4_yr_cutoff <- filter(new_procedure_counts_by_year_pod_version_4_yr_cut, new_opcs_release) |> summarise(n = sum(n), .by = c(year, pod))
+
+bind_rows(new_procedures = new_procedure_counts_by_year_pod_4_yr_cutoff,
+          all_activity = hes_opa_and_elective,
+          .id = "data") |> 
+  pivot_wider(names_from = data, values_from = n) |> 
+  mutate(new_procedures_p = new_procedures/all_activity) |> 
+  ggplot(aes(x = year, y = new_procedures_p, colour = pod)) +
+  geom_line(size=1) +
+  NHSRtheme::theme_nhs() +
+  NHSRtheme::scale_colour_nhs() +
+  xlab("Year") +
+  ylab("Proportion") +
+  ggtitle("New procedures as proportion of total activity (with 4-year cut-off)") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(limits = c(2005,NA)) +
+  theme(plot.title = element_text(size=14))
 ```
 
 ## Limitations
