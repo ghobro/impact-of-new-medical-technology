@@ -291,7 +291,8 @@ data <- read.csv(
 )
 
 data <- data |> 
-  mutate(procedure_group = if_else(primary_procedure == "other", "other", "new procedure"))
+  mutate(procedure_group = if_else(primary_procedure == "other", "other", "new procedure")) |> 
+  filter(between(year,2000,2019))
 
 new_procedures <- filter(data, procedure_group == "new procedure")
 ```
