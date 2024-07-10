@@ -152,47 +152,116 @@ tibble(Der_Spell_ID = "1704950529596980000",
   knitr::kable(caption = "Table 4: the single row within the SUS APCS data set associated with a specific spell")
 ```
 
-The following SQL script shows the way in which the data are extracted for elective admissions and outpatient attendances. `new_codes` refers to the 666 codes that were identified as being added since OPCS-4.3 in 2006 (having excluded chapters Y and Z).
+The following SQL script shows the way in which the data are extracted for elective admissions and outpatient attendances. `new_codes` refers to the 666 codes that were identified as being added since OPCS-4.3 in 2006 (having excluded chapters Y and Z). Note that this includes "other" procedures which are essentially the complement of the `new_codes` so that the data includes all admissions and attendances.
 
 ``` sql
 select 
-    'elective inpatients' as pod,
-    year([OPDATE]) as [year], 
-    [OPCODE] as [primary_procedure], 
-    count(*) as [n] 
+	'apc_all_year' as source,
+	'elective inpatients' as pod,
+	year([ADMIDATE]) as [year], 
+	case
+		when LEFT([OPCODE],4) in new_codes
+			then LEFT([OPCODE],4)
+		else 'other'
+		end as [primary_procedure], 
+	count(*) as [n] 
 from 
-    [HESdata].[dbo].[tbInpatients]
+	[HESdata].[dbo].[tbInpatients]
 left outer join 
-    [HESdata].[dbo].[tbInpatientsProcedures]
-    on [HESdata].[dbo].[tbInpatients].FYEAR = [HESdata].[dbo].[tbInpatientsProcedures].FYEAR
-    and [HESdata].[dbo].[tbInpatients].EPIKEY = [HESdata].[dbo].[tbInpatientsProcedures].EPIKEY
+	[HESdata].[dbo].[tbInpatientsProcedures]
+	on [HESdata].[dbo].[tbInpatients].FYEAR = [HESdata].[dbo].[tbInpatientsProcedures].FYEAR
+	and [HESdata].[dbo].[tbInpatients].EPIKEY = [HESdata].[dbo].[tbInpatientsProcedures].EPIKEY
+	and OPORDER = 1
 where 
-    [OPCODE] in new_codes
-    and year([OPDATE]) between 2000 and 2019
-    and OPORDER = 1
-    and left([ADMIMETH], 1) = '1' 
+	year([ADMIDATE]) >= 2000
+	and year([ADMIDATE]) <= 2022
+	and left([ADMIMETH], 1) = '1' 
 group by 
-    year([OPDATE]), 
-    [OPCODE]
+	year([ADMIDATE]), 
+	case
+		when LEFT([OPCODE],4) in new_codes
+			then LEFT([OPCODE],4)
+		else 'other'
+		end
+
 union all
+
 select
-    'outpatient attendances' as pod, 
-    year([APPTDATE]) as [year],
-    [OPCODE] as [primary procedure],
-    count(*) as [n]
+	'op_all_year' as source,
+	'outpatient attendances' as pod, 
+	year([APPTDATE]) as [year],
+	case
+		when LEFT([OPCODE],4) in new_codes
+			then LEFT([OPCODE],4)
+		else 'other'
+		end as [primary_procedure],
+	count(*) as [n]
 from
-    [HESdata].[dbo].[tbOutpatients]
+	[HESdata].[dbo].[tbOutpatients]
 left outer join 
-    [HESdata].[dbo].[tbOutpatientsProcedures]
-    on [HESdata].[dbo].[tbOutpatients].ATTENDKEY = [HESdata].[dbo].[tbOutpatientsProcedures].ATTENDKEY
+	[HESdata].[dbo].[tbOutpatientsProcedures]
+	on [HESdata].[dbo].[tbOutpatients].ATTENDKEY = [HESdata].[dbo].[tbOutpatientsProcedures].ATTENDKEY
+	and [OPORDER] = 1
 where
-    [OPCODE] in new_codes
-    and year([APPTDATE]) between 2000 and 2019
-    and [OPORDER] = 1
+	year([APPTDATE]) >= 2000
+	and year([APPTDATE]) <= 2022
 group by 
-    year([APPTDATE]),
-    [OPCODE] ;
-    
+	year([APPTDATE]),
+	case
+		when LEFT([OPCODE],4) in new_codes
+			then LEFT([OPCODE],4)
+		else 'other'
+		end 
+	
+union all
+
+select 
+	'op_2122' as source,
+	'outpatient attendances' as pod,
+	year([APPTDATE_Derived]) as [year], 
+	case
+		when LEFT([OPERTN_01],4) in new_codes
+			then LEFT([OPERTN_01],4)
+		else 'other'
+		end as [primary_procedure],
+	count(*) as [n] 
+from 
+	[HESdata].[dbo].[tbOutpatients2122]
+where 
+	year([APPTDATE_Derived]) >= 2000
+	and year([APPTDATE_Derived]) <= 2022
+group by 
+	year([APPTDATE_Derived]), 
+	case
+		when LEFT([OPERTN_01],4) in new_codes
+			then LEFT([OPERTN_01],4)
+		else 'other'
+		end
+
+union all
+
+select 
+	'op_2223' as source,
+	'outpatient attendances' as pod,
+	year([APPTDATE_Derived]) as [year], 
+	case
+		when LEFT([OPERTN_01],4) in new_codes
+			then LEFT([OPERTN_01],4)
+		else 'other'
+		end as [primary_procedure],
+	count(*) as [n] 
+from 
+	[HESdata].[dbo].[tbOutpatients2223]
+where 
+	year([APPTDATE_Derived]) >= 2000
+	and year([APPTDATE_Derived]) <= 2022
+group by 
+	year([APPTDATE_Derived]), 
+	case
+		when LEFT([OPERTN_01],4) in new_codes
+			then LEFT([OPERTN_01],4)
+		else 'other'
+		end;
 ```
 
 Due to the impact of the COVID pandemic from 2020, we only analyse data from 2006 to 2019. This means that, for the analysis of their use, we disregard OPCS-4.9 and OPCS-4.10 (which were in implemented in 2020/21 and 2023/24, respectively).
@@ -200,9 +269,14 @@ Due to the impact of the COVID pandemic from 2020, we only analyse data from 200
 ## Exploratory analysis
 
 ```{r load_data}
-data <- readxl::read_excel(
-  here("data", "hes_output_sw_SUenv_240529.xlsx")
+data <- read.csv(
+  here("data", "updated HES extract for new procs work", "hes_output_sw_SUenv_240702.csv")
 )
+
+data <- data |> 
+  mutate(procedure_group = if_else(primary_procedure == "other", "other", "new procedure"))
+
+new_procedures <- filter(data, procedure_group == "new procedure")
 ```
 
 ```{r opcs_version_lookup}
@@ -215,13 +289,13 @@ names(codes_by_version) <- c("code", "description", "version_introduced")
 
 # join the data
 new_procedure_counts_full <- left_join(
-  data,
+  new_procedures,
   codes_by_version,
   by = c("primary_procedure" = "code"))
 
 # Remove the codes from 4.9 and 4.8 due to COVID and DQ
 new_procedure_counts_full <- new_procedure_counts_full |>
-  filter(version_introduced != c("4.9", "4.10"))
+  filter(!(version_introduced %in% c("4.9", "4.10")))
 
 # re-organise the columns
 new_procedure_counts_full <- new_procedure_counts_full |>
@@ -261,9 +335,8 @@ The following two charts show the adoption curves for new procedures in OPCS-4.2
 ```{r elective_admissions_plot}
 new_procedure_counts_full |>
   filter(pod == "elective inpatients") |> 
-  summarise(n = sum(n), .by = c(version_introduced, year)) |>
   ggplot(aes(x=year, y=n)) +
-  geom_line() +
+  stat_summary(fun = 'sum', geom = 'line') +
   scale_y_continuous(limits = c(0, NA),labels = scales::comma) +
   scale_x_continuous(breaks = scales::pretty_breaks()) +
   facet_wrap(~version_introduced, scales = "free_y") +
@@ -275,9 +348,8 @@ new_procedure_counts_full |>
 ```{r outpatient_attendances_plot}
 new_procedure_counts_full |>
   filter(pod == "outpatient attendances") |> 
-  summarise(n = sum(n), .by = c(version_introduced, year)) |>
   ggplot(aes(x=year, y=n)) +
-  geom_line() +
+  stat_summary(fun = 'sum', geom = 'line') +
   scale_y_continuous(limits = c(0, NA),labels = scales::comma) +
   scale_x_continuous(breaks = scales::pretty_breaks()) +
   facet_wrap(~version_introduced, scales = "free_y") +
@@ -358,29 +430,18 @@ new_procedure_counts_full |>
 ## Comparison of growth in new procedures to total activity
 
 ```{r total_activity}
-# load in the data from track 1 NDG
-hes_activity_data <- read.csv(
-  here("data", "Hospital activity data (HES).csv"))
+# group the total activity data by year and pod
+hes_opa_and_elective <- data |>
+  summarise(n = sum(n), .by = c(year, pod)) 
 
-# filter to opa and elective and year up to 2019
-hes_opa_and_elective <- hes_activity_data |>
-  filter(pod %in% c("IpElec", "opAtt"),
-         yr <= 2019)
-
-# re-group the data
-hes_opa_and_elective <- hes_opa_and_elective |>
-  summarise(activity = sum(activity), .by = c(yr, pod)) |> 
-  #rename the pods
-  mutate(pod = if_else(pod=="IpElec", "elective inpatients", "outpatient attendances"))
-
+# get the new procedures data 
 new_procedure_counts_by_year_pod_version <- summarise(new_procedure_counts_full, n=sum(n), .by = c(year, version_introduced, pod))
-
 ```
 
 ```{r new_procedures_vs_total_activity_plot}
 ggplot() +
   geom_col(data = new_procedure_counts_by_year_pod_version, aes(x=year, y=n, fill = version_introduced)) +
-  geom_line(data = hes_opa_and_elective, aes(x=yr,y=activity)) +
+  geom_line(data = hes_opa_and_elective, aes(x=year,y=n)) +
   facet_wrap(~pod, scales = "free_y") +
   scale_x_continuous(breaks = scales::pretty_breaks()) +
   scale_y_continuous(labels = scales::comma_format()) +
@@ -411,7 +472,7 @@ We can see in the below plot that this indicates minuscule impacts from new proc
 ```{r plot_4_yr_cut_v1}
 ggplot() +
   geom_col(data = filter(new_procedure_counts_by_year_pod_version_4_yr_cut, new_opcs_release), aes(x=year, y=n, fill = version_introduced)) +
-  geom_line(data = hes_opa_and_elective, aes(x=yr,y=activity)) +
+  geom_line(data = hes_opa_and_elective, aes(x=year,y=n)) +
   facet_wrap(~pod, scales = "free_y") +
   scale_x_continuous(breaks = scales::pretty_breaks()) +
   scale_y_continuous(labels = scales::comma_format()) +
